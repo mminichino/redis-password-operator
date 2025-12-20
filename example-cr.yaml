@@ -1,0 +1,13 @@
+apiVersion: util.redislabs.com/v1
+kind: RedisClusterPassword
+metadata:
+  name: example-redis-password
+  namespace: default
+spec:
+  secret:
+    name: source-password-secret
+    namespace: config-namespace
+  rec:
+    name: redis-cluster-1
+    username: admin
+    namespace: redis-namespace

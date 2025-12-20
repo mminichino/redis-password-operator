@@ -1,0 +1,10 @@
+[project]
+name = "redis-password-operator"
+version = "0.1.0"
+description = "Operator to Manager Redis Cluster Admin Password"
+requires-python = ">=3.12"
+dependencies = [
+    "kopf",
+    "kubernetes",
+    "requests",
+]

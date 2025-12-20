@@ -1,0 +1,26 @@
+# Log directory
+log/
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+.flaskenv
+
+# IDE-specific files
+.idea/
+.vscode/
+
+# uv lock file
+uv.lock
