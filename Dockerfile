@@ -5,6 +5,6 @@ WORKDIR /app
 COPY pyproject.toml .
 RUN pip install .
 
-COPY operator.py .
+COPY redis_password_operator.py .
 
-CMD ["kopf", "run", "operator.py"]
+CMD ["kopf", "run", "redis_password_operator.py"]

@@ -6,8 +6,7 @@ metadata:
 spec:
   secret:
     name: source-password-secret
-    namespace: config-namespace
+    namespace: redis
   rec:
-    name: redis-cluster-1
-    username: admin
-    namespace: redis-namespace
+    name: redis-enterprise-cluster
+    namespace: redis

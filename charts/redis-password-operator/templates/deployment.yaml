@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-password-operator
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: redis-password-operator
+  template:
+    metadata:
+      labels:
+        app: redis-password-operator
+    spec:
+      serviceAccountName: redis-password-operator
+      containers:
+        - name: operator
+          image: {{ .Values.image.repository }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}

@@ -8,3 +8,16 @@ dependencies = [
     "kubernetes",
     "requests",
 ]
+
+[dependency-groups]
+test = [
+    "pytest>=8.1.1",
+    "pytest-asyncio>=0.23.6",
+    "pytest-rerunfailures>=10.3",
+    "pytest-mock>=3.6.1",
+]
+dev = [
+    "hatch",
+    "typer",
+    "tomli"
+]
