@@ -7,6 +7,7 @@ import time
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import logging
+from redis_password_operator import __version__
 
 def backoff_seconds() -> int:
     return random.randint(0, 30)
@@ -25,6 +26,7 @@ session.mount("http://", adapter)
 @kopf.on.create('util.redislabs.com', 'v1', 'redisclusterpasswords')
 @kopf.on.update('util.redislabs.com', 'v1', 'redisclusterpasswords')
 def update_redis_password(spec, name, namespace, logger, **kwargs):
+    logger.debug(f"Processing {name} in {namespace} kwarg: {kwargs}")
     secret_spec = spec.get('secret')
     rec_spec = spec.get('rec')
 
@@ -137,9 +139,10 @@ def update_redis_password(spec, name, namespace, logger, **kwargs):
     logger.info(f"Successfully updated secret {rec_name} in {rec_namespace}")
 
 @kopf.on.startup()
-def configure(settings: kopf.OperatorSettings, **_):
+def configure(settings: kopf.OperatorSettings, logger: logging.Logger, **_):
     settings.posting.level = logging.INFO
     try:
+        logger.info(f"Starting Redis Password Operator version {__version__}")
         kubernetes.config.load_incluster_config()
     except kubernetes.config.ConfigException:
         kubernetes.config.load_kube_config()

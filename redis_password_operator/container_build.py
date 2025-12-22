@@ -3,8 +3,7 @@
 import logging
 import subprocess
 import typer
-from pathlib import Path
-import tomli
+from redis_password_operator import __version__
 
 app = typer.Typer()
 logger = logging.getLogger()
@@ -27,6 +26,19 @@ def build_image(
     ]
     subprocess.run(args, check=True)
 
+def build_local(
+        image_name: str,
+        version: str,
+        platform: str = "linux/amd64"
+):
+    args = [
+        "docker", "buildx", "build",
+        "--platform", platform,
+        "-t", f"{image_name}:{version}",
+        "."
+    ]
+    subprocess.run(args, check=True)
+
 @app.command()
 def build(
         repo: str = typer.Option(None, "--repo", help="Repository name"),
@@ -34,11 +46,11 @@ def build(
         version: str = typer.Option(None, "--version", help="Version"),
 ):
     if not version:
-        pyproject = Path("pyproject.toml")
-        with pyproject.open("rb") as f:
-            data = tomli.load(f)
-            version = data["project"]["version"]
-    build_image(repo, image_name, version)
+        version = __version__
+    if not repo:
+        build_local(image_name, version)
+    else:
+        build_image(repo, image_name, version)
 
 if __name__ == "__main__":
     app()
