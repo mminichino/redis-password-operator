@@ -3,6 +3,25 @@ entries:
   redis-password-operator:
   - apiVersion: v2
     appVersion: 0.1.1
+    created: "2025-12-22T19:52:53.433821193Z"
+    description: Sync Redis admin password between Kubernetes secret and Redis cluster
+    digest: 28c2196c9616a06b98431180c240cb1cb86186bf85a0b173d9328d6457bac331
+    home: https://github.com/mminichino/redis-password-operator
+    keywords:
+    - kubernetes
+    - redis
+    maintainers:
+    - name: Michael Minichino
+      url: https://github.com/mminichino/redis-password-operator
+    name: redis-password-operator
+    sources:
+    - https://github.com/mminichino/redis-password-operator
+    type: application
+    urls:
+    - https://github.com/mminichino/redis-password-operator/releases/download/redis-password-operator-0.1.3/redis-password-operator-0.1.3.tgz
+    version: 0.1.3
+  - apiVersion: v2
+    appVersion: 0.1.1
     created: "2025-12-22T19:44:54.164526446Z"
     description: Sync Redis admin password between Kubernetes secret and Redis cluster
     digest: d4dabfa20a05952442268334e92bf238af4b63e304064b187109adc09ef13e74
@@ -39,4 +58,4 @@ entries:
     urls:
     - https://github.com/mminichino/redis-password-operator/releases/download/redis-password-operator-0.1.1/redis-password-operator-0.1.1.tgz
     version: 0.1.1
-generated: "2025-12-22T19:44:54.16453382Z"
+generated: "2025-12-22T19:52:53.433839457Z"
