@@ -145,6 +145,37 @@ def update_redis_password(spec, name, namespace, logger, **kwargs):
 
     logger.info(f"Successfully updated secret {rec_name} in {rec_namespace}")
 
+@kopf.on.event('', 'v1', 'secrets')
+def watch_secret_updates(event, name, namespace, logger, **kwargs):
+    logger.debug(f"Processing secret event {event['type']} for {name} in {namespace} kwarg: {kwargs}")
+    if event['type'] != 'MODIFIED':
+        return
+
+    custom_api = kubernetes.client.CustomObjectsApi()
+
+    try:
+        rcps = custom_api.list_cluster_custom_object(
+            group="util.redislabs.com",
+            version="v1",
+            plural="redisclusterpasswords"
+        )
+
+        for rcp in rcps.get('items', []):
+            spec = rcp.get('spec', {})
+            src_secret = spec.get('secret', {})
+
+            if src_secret.get('name') == name and src_secret.get('namespace') == namespace:
+                logger.info(f"Secret {name} in {namespace} changed. Triggering update for {rcp['metadata']['name']}")
+
+                update_redis_password(
+                    spec=spec,
+                    name=rcp['metadata']['name'],
+                    namespace=rcp['metadata']['namespace'],
+                    logger=logger
+                )
+    except kubernetes.client.exceptions.ApiException as e:
+        raise kopf.TemporaryError(f"Failed to list RedisClusterPasswords: {e}", delay=15)
+
 @kopf.on.startup()
 def configure(settings: kopf.OperatorSettings, logger: logging.Logger, **_):
     settings.posting.level = logging.INFO
