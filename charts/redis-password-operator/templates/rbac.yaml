@@ -9,7 +9,7 @@ kind: ClusterRole
 metadata:
   name: redis-password-operator-role
 rules:
-  - apiGroups: [example.com]
+  - apiGroups: [util.redislabs.com]
     resources: [redisclusterpasswords]
     verbs: [list, watch, patch, get]
   - apiGroups: [""]
