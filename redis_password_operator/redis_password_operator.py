@@ -47,6 +47,14 @@ def update_redis_password(spec, name, namespace, logger, **kwargs):
 
     try:
         src_secret = v1.read_namespaced_secret(src_secret_name, src_secret_namespace)
+
+        labels = src_secret.metadata.labels or {}
+        if labels.get('reconcile.util.redislabs.com/managed') != 'true':
+            labels['reconcile.util.redislabs.com/managed'] = 'true'
+            src_secret.metadata.labels = labels
+            v1.patch_namespaced_secret(src_secret_name, src_secret_namespace, src_secret)
+            logger.debug(f"Labeled source secret {src_secret_name} for reconciliation.")
+
         if 'password' not in src_secret.data:
             logger.warning(f"Source secret {src_secret_name} in {src_secret_namespace} does not contain 'password' field.")
             raise kopf.TemporaryError(f"Secret {src_secret_name} in {src_secret_namespace} does not contain 'password' field", delay=15)
@@ -145,7 +153,7 @@ def update_redis_password(spec, name, namespace, logger, **kwargs):
 
     logger.info(f"Successfully updated secret {rec_name} in {rec_namespace}")
 
-@kopf.on.event('', 'v1', 'secrets')
+@kopf.on.event('', 'v1', 'secrets', labels={'reconcile.util.redislabs.com/managed': 'true'})
 def watch_secret_updates(event, name, namespace, logger, **kwargs):
     logger.debug(f"Processing secret event {event['type']} for {name} in {namespace} kwarg: {kwargs}")
     if event['type'] != 'MODIFIED':
