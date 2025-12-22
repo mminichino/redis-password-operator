@@ -21,6 +21,7 @@ env/
 # IDE-specific files
 .idea/
 .vscode/
+*.iml
 
 # uv lock file
 uv.lock
