@@ -4,6 +4,7 @@ import requests
 import base64
 import random
 import time
+import warnings
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import logging
@@ -12,6 +13,8 @@ from redis_password_operator import __version__
 def backoff_seconds() -> int:
     return random.randint(0, 30)
 
+warnings.filterwarnings("ignore")
+logging.getLogger("urllib3").setLevel(logging.CRITICAL)
 retry_strategy = Retry(
     total=10,
     backoff_factor=1,
@@ -70,6 +73,10 @@ def update_redis_password(spec, name, namespace, logger, **kwargs):
             logger.warning(f"Target secret {rec_name} in {rec_namespace} not found.")
             raise kopf.TemporaryError(f"Secret {rec_name} in {rec_namespace} not found", delay=15)
         raise kopf.TemporaryError(f"Can not connect to Kubernetes API, status {e.status}", delay=15)
+
+    if old_password == new_password:
+        logger.info(f"{rec_name}: Passwords are the same, skipping update.")
+        return
 
     url = f"https://{rec_name}.{rec_namespace}.svc.cluster.local:9443/v1/users/password"
     
