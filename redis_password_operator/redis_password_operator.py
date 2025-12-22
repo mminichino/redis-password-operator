@@ -173,7 +173,7 @@ def watch_secret_updates(event, name, namespace, logger, **kwargs):
             src_secret = spec.get('secret', {})
 
             if src_secret.get('name') == name and src_secret.get('namespace') == namespace:
-                logger.info(f"Secret {name} in {namespace} changed. Triggering update for {rcp['metadata']['name']}")
+                logger.info(f"Secret {name} in {namespace} changed. Triggering update for {rcp['metadata']['name']}.")
 
                 update_redis_password(
                     spec=spec,
