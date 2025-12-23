@@ -126,6 +126,9 @@ def set_secret_keys(name: str, namespace: str, keys: dict, logger: logging.Logge
             secret.data = {}
         for key, value in keys.items():
             secret.data[key] = base64.b64encode(value.encode('utf-8')).decode('utf-8')
+        annotations = secret.metadata.annotations or {}
+        annotations[ANNOTATION_KEY] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        secret.metadata.annotations = annotations
         v1.patch_namespaced_secret(name, namespace, secret)
         logger.info(f"Updated secret {name} in {namespace}.")
         return True
@@ -217,17 +220,6 @@ def update_redis_password(spec, name, namespace, logger, **_):
         raise kopf.TemporaryError(f"Failed to update secret {src_secret_name} in {src_secret_namespace}", delay=15)
 
     logger.info(f"Successfully updated secret {rec_name} in {rec_namespace}")
-
-@kopf.on.create('v1', 'secrets', labels={LABEL_KEY: 'true'})
-@kopf.on.update('v1', 'secrets', labels={LABEL_KEY: 'true'})
-@kopf.on.resume('v1', 'secrets', labels={LABEL_KEY: 'true'})
-def annotate_secret(meta, patch, logger, **_):
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-    patch.metadata.setdefault("annotations", {})
-    patch.metadata["annotations"][ANNOTATION_KEY] = now
-
-    logger.info(f"Annotated Secret {meta['name']} in {meta['namespace']} as updated at {now}.")
 
 @kopf.on.create('v1', 'secrets', labels={LABEL_KEY: 'true'})
 @kopf.on.update('v1', 'secrets', labels={LABEL_KEY: 'true'})
