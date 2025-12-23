@@ -209,54 +209,16 @@ def update_redis_password(spec, name, namespace, logger, **_):
     if not set_secret_keys(rec_name, rec_namespace, data, logger):
         raise kopf.TemporaryError(f"Failed to update secret {rec_name} in {rec_namespace}", delay=15)
 
-    data = {
-        'username': rec_username,
-        'old_password': old_password,
-        'rec_name': rec_name,
-        'rec_namespace': rec_namespace
-    }
-    if not set_secret_keys(src_secret_name, src_secret_namespace, data, logger, annotate=True):
-        raise kopf.TemporaryError(f"Failed to update secret {src_secret_name} in {src_secret_namespace}", delay=15)
+    delete_old_password(rec_username, old_password, rec_name, rec_namespace, new_password, logger)
 
     logger.info(f"Successfully updated secret {rec_name} in {rec_namespace}")
 
-@kopf.on.create('v1', 'secrets', labels={LABEL_KEY: 'true'})
-@kopf.on.update('v1', 'secrets', labels={LABEL_KEY: 'true'})
-def delete_old_password(meta, logger, **_):
-    name = meta['name']
-    namespace = meta['namespace']
-    annotations = meta.get('annotations', {})
-    last_updated_str = annotations.get(ANNOTATION_KEY)
+def delete_old_password(rec_username, old_password, rec_name, rec_namespace, rec_password, logger):
+    remaining = 300
+    logger.info(f"Waiting for old password deletion window ({remaining}s remaining).")
+    time.sleep(remaining)
 
-    if not last_updated_str:
-        logger.debug(f"Annotation {ANNOTATION_KEY} not found on secret {meta['name']}. Skipping.")
-        return
-
-    keys = get_secret_keys(name, namespace, logger)
-    required_keys = ('username', 'password', 'old_password', 'rec_name', 'rec_namespace')
-    if not all(k in keys for k in required_keys):
-        logger.debug(f"Secret {meta['name']} in {meta['namespace']} does not contain all required fields. Skipping.")
-        return
-
-    rec_username = keys['username']
-    rec_password = keys['password']
-    old_password = keys['old_password']
-    rec_name = keys['rec_name']
-    rec_namespace = keys['rec_namespace']
-    last_updated = datetime.fromisoformat(last_updated_str)
-    now = datetime.now(timezone.utc)
-    if last_updated.tzinfo is None:
-        last_updated = last_updated.replace(tzinfo=timezone.utc)
-
-    diff = (now - last_updated).total_seconds()
-    wait_time = 300
-
-    if diff < wait_time:
-        remaining = int(wait_time - diff)
-        logger.info(f"Waiting for old password deletion window ({remaining}s remaining) for {meta['name']}.")
-        time.sleep(remaining)
-
-    logger.info(f"Deleting old password for {meta['name']} in {meta['namespace']}.")
+    logger.info(f"Deleting old password for {rec_name} in {rec_namespace}.")
 
     payload = {
         "username": rec_username,
@@ -281,8 +243,7 @@ def delete_old_password(meta, logger, **_):
         else:
             raise kopf.TemporaryError(f"REST API call failed: {e}", delay=15)
 
-    delete_secret_key(name, namespace, 'old_password', logger)
-    logger.info(f"Deleted old password from secret {meta['name']}.")
+    logger.info(f"Deleted old password for {rec_name}.")
 
 @kopf.on.create('v1', 'secrets', labels={LABEL_KEY: 'true'})
 @kopf.on.update('v1', 'secrets', labels={LABEL_KEY: 'true'})
