@@ -328,6 +328,8 @@ def watch_secret_updates(meta, logger, **_):
 @kopf.on.startup()
 def configure(settings: kopf.OperatorSettings, logger: logging.Logger, **_):
     settings.posting.level = logging.INFO
+    settings.persistence.progress_storage = kopf.AnnotationsProgressStorage(prefix='status.util.redislabs.com')
+    settings.persistence.diffbase_storage = kopf.AnnotationsDiffBaseStorage(prefix='status.util.redislabs.com')
     try:
         logger.info(f"Starting Redis Password Operator version {__version__}")
         kubernetes.config.load_incluster_config()
