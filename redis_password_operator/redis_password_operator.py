@@ -218,12 +218,6 @@ def update_redis_password(spec, name, namespace, logger, **_):
 
     logger.info(f"Successfully updated secret {rec_name} in {rec_namespace}")
 
-@kopf.on.create('util.redislabs.com', 'v1', 'redisclusterpasswords')
-@kopf.on.update('util.redislabs.com', 'v1', 'redisclusterpasswords')
-def reconcile(patch, **_):
-    patch.status["lastReconciledAt"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    patch.status["ready"] = True
-
 @kopf.on.create('v1', 'secrets', labels={LABEL_KEY: 'true'})
 @kopf.on.update('v1', 'secrets', labels={LABEL_KEY: 'true'})
 @kopf.on.resume('v1', 'secrets', labels={LABEL_KEY: 'true'})
@@ -320,11 +314,20 @@ def watch_secret_updates(meta, logger, **_):
             if src_secret.get('name') == name and src_secret.get('namespace') == namespace:
                 logger.info(f"Secret {name} in {namespace} changed. Triggering update for {rcp['metadata']['name']}.")
 
-                update_redis_password(
-                    spec=spec,
-                    name=rcp['metadata']['name'],
+                now = datetime.now(timezone.utc).isoformat()
+                custom_api.patch_namespaced_custom_object(
+                    group="util.redislabs.com",
+                    version="v1",
                     namespace=rcp['metadata']['namespace'],
-                    logger=logger
+                    plural="redisclusterpasswords",
+                    name=rcp['metadata']['name'],
+                    body={
+                        "metadata": {
+                            "annotations": {
+                                ANNOTATION_KEY: now
+                            }
+                        }
+                    }
                 )
     except kubernetes.client.exceptions.ApiException as e:
         raise kopf.TemporaryError(f"Failed to list RedisClusterPasswords: {e}", delay=15)
