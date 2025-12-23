@@ -5,6 +5,7 @@ import base64
 import random
 import time
 import warnings
+from typing import Union
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import logging
@@ -25,6 +26,74 @@ adapter = HTTPAdapter(max_retries=retry_strategy)
 session = requests.Session()
 session.mount("https://", adapter)
 session.mount("http://", adapter)
+
+def update_label(name: str, namespace: str, key: str, value: str, logger: logging.Logger) -> bool:
+    try:
+        v1 = kubernetes.client.CoreV1Api()
+        secret = v1.read_namespaced_secret(name, namespace)
+        labels = secret.metadata.labels or {}
+        if labels.get(key) == value:
+            return True
+        labels[key] = value
+        secret.metadata.labels = labels
+        v1.patch_namespaced_secret(name, namespace, secret)
+        logger.info(f"Labeled secret {name} with {key}={value}.")
+        return True
+    except kubernetes.client.exceptions.ApiException as e:
+        if e.status == 404:
+            logger.warning(f"Secret {name} in {namespace} not found.")
+        else:
+            logger.error(f"Can not connect to Kubernetes API, status {e.status}")
+        return False
+
+def get_secret_key(name: str, namespace: str, key: str, logger: logging.Logger) -> Union[str, None]:
+    v1 = kubernetes.client.CoreV1Api()
+    try:
+        secret = v1.read_namespaced_secret(name, namespace)
+        value = secret.data.get(key)
+        if value:
+            return base64.b64decode(value).decode('utf-8')
+        return None
+    except kubernetes.client.exceptions.ApiException as e:
+        if e.status == 404:
+            logger.warning(f"Secret {name} in {namespace} not found.")
+        else:
+            logger.error(f"Can not connect to Kubernetes API, status {e.status}")
+        return None
+
+def delete_secret_key(name: str, namespace: str, key: str, logger: logging.Logger) -> bool:
+    v1 = kubernetes.client.CoreV1Api()
+    try:
+        secret = v1.read_namespaced_secret(name, namespace)
+        if key in secret.data:
+            del secret.data[key]
+            v1.patch_namespaced_secret(name, namespace, secret)
+            logger.info(f"Deleted key {key} from secret {name} in {namespace}.")
+        return True
+    except kubernetes.client.exceptions.ApiException as e:
+        if e.status == 404:
+            logger.warning(f"Secret {name} in {namespace} not found.")
+        else:
+            logger.error(f"Can not connect to Kubernetes API, status {e.status}")
+        return False
+
+def set_secret_keys(name: str, namespace: str, keys: dict, logger: logging.Logger) -> bool:
+    v1 = kubernetes.client.CoreV1Api()
+    try:
+        secret = v1.read_namespaced_secret(name, namespace)
+        if not secret.data:
+            secret.data = {}
+        for key, value in keys.items():
+            secret.data[key] = base64.b64encode(value.encode('utf-8')).decode('utf-8')
+        v1.patch_namespaced_secret(name, namespace, secret)
+        logger.info(f"Updated secret {name} in {namespace}.")
+        return True
+    except kubernetes.client.exceptions.ApiException as e:
+        if e.status == 404:
+            logger.warning(f"Secret {name} in {namespace} not found.")
+        else:
+            logger.error(f"Can not connect to Kubernetes API, status {e.status}")
+        return False
 
 @kopf.on.create('util.redislabs.com', 'v1', 'redisclusterpasswords')
 @kopf.on.update('util.redislabs.com', 'v1', 'redisclusterpasswords')
@@ -48,12 +117,7 @@ def update_redis_password(spec, name, namespace, logger, **kwargs):
     try:
         src_secret = v1.read_namespaced_secret(src_secret_name, src_secret_namespace)
 
-        labels = src_secret.metadata.labels or {}
-        if labels.get('reconcile.util.redislabs.com/managed') != 'true':
-            labels['reconcile.util.redislabs.com/managed'] = 'true'
-            src_secret.metadata.labels = labels
-            v1.patch_namespaced_secret(src_secret_name, src_secret_namespace, src_secret)
-            logger.debug(f"Labeled source secret {src_secret_name} for reconciliation.")
+        update_label(src_secret_name, src_secret_namespace, 'reconcile.util.redislabs.com/managed', 'true', logger)
 
         if 'password' not in src_secret.data:
             logger.warning(f"Source secret {src_secret_name} in {src_secret_namespace} does not contain 'password' field.")
