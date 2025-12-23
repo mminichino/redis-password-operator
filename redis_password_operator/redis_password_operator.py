@@ -4,6 +4,7 @@ import requests
 import base64
 import random
 import warnings
+import time
 from datetime import datetime, timezone
 from typing import Union
 from requests.adapters import HTTPAdapter
@@ -93,7 +94,7 @@ def delete_secret_key(name: str, namespace: str, key: str, logger: logging.Logge
     try:
         secret = v1.read_namespaced_secret(name, namespace)
         if key in secret.data:
-            del secret.data[key]
+            secret.data[key] = None
             v1.patch_namespaced_secret(name, namespace, secret)
             logger.info(f"Deleted key {key} from secret {name} in {namespace}.")
         return True
@@ -219,7 +220,8 @@ def update_redis_password(spec, name, namespace, logger, **_):
 
     logger.info(f"Successfully updated secret {rec_name} in {rec_namespace}")
 
-@kopf.on.timer('v1', 'secrets', labels={LABEL_KEY: 'true'}, interval=60)
+@kopf.on.create('v1', 'secrets', labels={LABEL_KEY: 'true'})
+@kopf.on.update('v1', 'secrets', labels={LABEL_KEY: 'true'})
 def delete_old_password(meta, logger, **_):
     name = meta['name']
     namespace = meta['namespace']
@@ -252,7 +254,7 @@ def delete_old_password(meta, logger, **_):
     if diff < wait_time:
         remaining = int(wait_time - diff)
         logger.info(f"Waiting for old password deletion window ({remaining}s remaining) for {meta['name']}.")
-        return
+        time.sleep(remaining)
 
     logger.info(f"Deleting old password for {meta['name']} in {meta['namespace']}.")
 
