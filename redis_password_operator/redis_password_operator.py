@@ -118,7 +118,7 @@ def create_secret(name: str, namespace: str, keys: dict, logger: logging.Logger)
         logger.error(f"Can not connect to Kubernetes API, status {e.status}")
         return False
 
-def set_secret_keys(name: str, namespace: str, keys: dict, logger: logging.Logger) -> bool:
+def set_secret_keys(name: str, namespace: str, keys: dict, logger: logging.Logger, annotate: bool = False) -> bool:
     v1 = kubernetes.client.CoreV1Api()
     try:
         secret = v1.read_namespaced_secret(name, namespace)
@@ -126,9 +126,10 @@ def set_secret_keys(name: str, namespace: str, keys: dict, logger: logging.Logge
             secret.data = {}
         for key, value in keys.items():
             secret.data[key] = base64.b64encode(value.encode('utf-8')).decode('utf-8')
-        annotations = secret.metadata.annotations or {}
-        annotations[ANNOTATION_KEY] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        secret.metadata.annotations = annotations
+        if annotate:
+            annotations = secret.metadata.annotations or {}
+            annotations[ANNOTATION_KEY] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            secret.metadata.annotations = annotations
         v1.patch_namespaced_secret(name, namespace, secret)
         logger.info(f"Updated secret {name} in {namespace}.")
         return True
@@ -216,7 +217,7 @@ def update_redis_password(spec, name, namespace, logger, **_):
         'rec_name': rec_name,
         'rec_namespace': rec_namespace
     }
-    if not set_secret_keys(src_secret_name, src_secret_namespace, data, logger):
+    if not set_secret_keys(src_secret_name, src_secret_namespace, data, logger, annotate=True):
         raise kopf.TemporaryError(f"Failed to update secret {src_secret_name} in {src_secret_namespace}", delay=15)
 
     logger.info(f"Successfully updated secret {rec_name} in {rec_namespace}")
