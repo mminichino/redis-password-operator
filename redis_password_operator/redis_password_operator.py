@@ -220,7 +220,7 @@ def update_redis_password(spec, name, namespace, logger, **_):
     logger.info(f"Successfully updated secret {rec_name} in {rec_namespace}")
 
 @kopf.on.timer('v1', 'secrets', labels={LABEL_KEY: 'true'}, interval=60)
-def delete_old_password(meta, patch, logger, **_):
+def delete_old_password(meta, logger, **_):
     name = meta['name']
     namespace = meta['namespace']
     annotations = meta.get('annotations', {})
@@ -274,14 +274,16 @@ def delete_old_password(meta, patch, logger, **_):
         response.raise_for_status()
         logger.info("Successfully deleted old password via REST API")
     except requests.exceptions.RequestException as e:
-        raise kopf.TemporaryError(f"REST API call failed: {e}", delay=15)
+        if e.response.status_code == 400:
+            logger.warning("Can not delete old password via REST API, old password does not exist.")
+        else:
+            raise kopf.TemporaryError(f"REST API call failed: {e}", delay=15)
 
     delete_secret_key(name, namespace, 'old_password', logger)
     logger.info(f"Deleted old password from secret {meta['name']}.")
 
 @kopf.on.create('v1', 'secrets', labels={LABEL_KEY: 'true'})
 @kopf.on.update('v1', 'secrets', labels={LABEL_KEY: 'true'})
-@kopf.on.resume('v1', 'secrets', labels={LABEL_KEY: 'true'})
 def watch_secret_updates(meta, logger, **_):
     name = meta['name']
     namespace = meta['namespace']
