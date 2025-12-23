@@ -160,9 +160,6 @@ def update_redis_password(spec, name, namespace, logger, **_):
     if not update_label(src_secret_name, src_secret_namespace, LABEL_KEY, 'true', logger):
         raise kopf.TemporaryError(f"Failed to update label on source secret {src_secret_name} in {src_secret_namespace}.", delay=15)
 
-    if has_secret_key(src_secret_name, src_secret_namespace, 'old_password', logger):
-        raise kopf.TemporaryError(f"Source secret {src_secret_name} in {src_secret_namespace} contains 'old_password' field.", delay=300)
-
     new_password = get_secret_key(src_secret_name, src_secret_namespace, 'password', logger)
     if not new_password:
         raise kopf.TemporaryError(f"Source secret {src_secret_name} in {src_secret_namespace} does not contain 'password' field", delay=15)
@@ -222,9 +219,7 @@ def update_redis_password(spec, name, namespace, logger, **_):
 
     logger.info(f"Successfully updated secret {rec_name} in {rec_namespace}")
 
-@kopf.on.create('v1', 'secrets', labels={LABEL_KEY: 'true'})
-@kopf.on.update('v1', 'secrets', labels={LABEL_KEY: 'true'})
-@kopf.on.resume('v1', 'secrets', labels={LABEL_KEY: 'true'})
+@kopf.on.timer('v1', 'secrets', labels={LABEL_KEY: 'true'}, interval=60)
 def delete_old_password(meta, patch, logger, **_):
     name = meta['name']
     namespace = meta['namespace']
@@ -257,7 +252,7 @@ def delete_old_password(meta, patch, logger, **_):
     if diff < wait_time:
         remaining = int(wait_time - diff)
         logger.info(f"Waiting for old password deletion window ({remaining}s remaining) for {meta['name']}.")
-        raise kopf.TemporaryError("Waiting for 5-minute window to pass.", delay=remaining)
+        return
 
     logger.info(f"Deleting old password for {meta['name']} in {meta['namespace']}.")
 
@@ -281,7 +276,7 @@ def delete_old_password(meta, patch, logger, **_):
     except requests.exceptions.RequestException as e:
         raise kopf.TemporaryError(f"REST API call failed: {e}", delay=15)
 
-    patch.data = {'old_password': None}
+    delete_secret_key(name, namespace, 'old_password', logger)
     logger.info(f"Deleted old password from secret {meta['name']}.")
 
 @kopf.on.create('v1', 'secrets', labels={LABEL_KEY: 'true'})
@@ -328,6 +323,8 @@ def watch_secret_updates(meta, logger, **_):
 @kopf.on.startup()
 def configure(settings: kopf.OperatorSettings, logger: logging.Logger, **_):
     settings.posting.level = logging.INFO
+    settings.networking.error_backoffs = [10, 20, 30]
+    settings.batching.error_delays = [10, 20, 30]
     settings.persistence.progress_storage = kopf.AnnotationsProgressStorage(prefix='status.util.redislabs.com')
     settings.persistence.diffbase_storage = kopf.AnnotationsDiffBaseStorage(prefix='status.util.redislabs.com')
     try:
