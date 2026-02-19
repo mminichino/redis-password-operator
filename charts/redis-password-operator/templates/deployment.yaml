@@ -16,5 +16,5 @@ spec:
       serviceAccountName: redis-password-operator
       containers:
         - name: operator
-          image: {{ .Values.image.repository }}:{{ .Chart.AppVersion }}
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}/{{ .Values.image.name }}:{{ .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}

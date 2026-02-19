@@ -2,5 +2,7 @@
 
 replicaCount: 1
 image:
-  repository: codelry/redis-password-operator
+  registry: docker.io
+  repository: codelry
+  name: redis-password-operator
   pullPolicy: Always
